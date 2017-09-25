@@ -1,0 +1,16 @@
+version: '2'
+services:
+  postgresql:
+    image: jest10820/sm-pgsql 
+    container_name: sm-pgsql
+    volumes:
+      - /home/docker/sm/pgdata:/var/lib/postgresql/data
+  pgadmin:
+    image: jest10820/sm-pgadmin
+    container_name: sm-pgadmin
+    ports:
+      - "5050:5050"
+    depends_on:
+      - postgresql
+    volumes:
+      - /home/docker/sm/pgadmin:/var/lib/pgadmin4
