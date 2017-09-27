@@ -44,9 +44,9 @@ with open('mercado.html') as fp:
             player['prize'] = int(prize.replace('.', ''))
             player['nation'] = nationality_id[get_nationality(tr.find('td', class_='iconos'))]
             print(player)
-            cur.execute("""INSERT INTO public.player (initial_prize, custom_pos_id, name, nationality_id, team_id)
-                VALUES (%(prize)s, %(pos)s, %(name)s, %(nation)s, %(team)s);""", player)
+            #cur.execute("""INSERT INTO public.player (initial_prize, custom_pos_id, name, nationality_id, team_id)
+            #    VALUES (%(prize)s, %(pos)s, %(name)s, %(nation)s, %(team)s);""", player)
 
-conn.commit()
-conn.close()
+#conn.commit()
+#conn.close()
             
