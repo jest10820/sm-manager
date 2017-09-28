@@ -1,5 +1,7 @@
 #!/bin/bash
 
-docker build -t="jest10820/sm-pgsql" ~/sm-manager/Dockerfiles/postgresql
-docker build -t="jest10820/sm-pgadmin" ~/sm-manager/Dockerfiles/pgadmin
-docker build -t="jest10820/python" ~/sm-manager/Dockerfiles/python
+currdir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+docker build -t="jest10820/sm-pgsql" "$currdir"/postgresql
+docker build -t="jest10820/sm-pgadmin" "$currdir"/pgadmin
+docker build -t="jest10820/python" "$currdir"/python
