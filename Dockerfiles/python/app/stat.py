@@ -7,8 +7,8 @@ except:
     print("I am unable to connect to the database")
 
 cur = conn.cursor()
-team_id_dict = {'UCAM MURCIA': 17}
-player_id = {}
+team_id_dict = {}
+player_id_dict = {}
 
 def get_undefined_team_id():
     cur.execute("""SELECT id FROM public.team WHERE name='Undefined team';""")
@@ -33,8 +33,7 @@ def ask_for_team_id(team):
     for team_db in list_teams:
         if team.lower() == team_db[1].lower():
             print('Found team:', team, 'with id', team_db[0])
-            #return team_db[0]
-            return undefined_team_id
+            return team_db[0]
     return undefined_team_id
 
 def ask_user_for_id(team):
@@ -84,6 +83,8 @@ def check_team(team):
             print('Need your help')
             final_id = ask_user_for_id(team)
             return final_id
+        else:
+            return team_id
     return undefined_team_id
     
 
@@ -94,7 +95,6 @@ with open('stat_1.html') as fp:
     stats_table = real_stats_table(stats_table)
     rows = stats_table.find_all('tr')
     for row in rows:
-        #print(row['class_'])
         if row.find('td', class_='estverdel'):
             # New team stat
             new_team = row.find('td', class_='estverdel').string
@@ -107,7 +107,5 @@ with open('stat_1.html') as fp:
             if team_id != undefined_team_id:
                 team_id_dict[team] = team_id
             print(team_id_dict)
-            #team_rows.append(row.find_all('td', class_='estverdel'))
-    
-    #print(len(team_rows))
-
+        elif not row.find('td', class_='estverde'):
+            pass
