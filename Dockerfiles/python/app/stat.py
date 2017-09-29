@@ -1,5 +1,6 @@
 from bs4 import BeautifulSoup
 import psycopg2
+from datetime import datetime
 
 try:
     conn = psycopg2.connect(dbname='supermanager', user='manager', host='sm-pgsql', password='190689')
@@ -29,7 +30,6 @@ def get_all_teams_from_db():
     return cur.fetchall()
 
 def get_all_players_from_team(team):
-    print(team)
     cur.execute("SELECT id, name FROM public.player WHERE team_id = %s ORDER BY id ASC;", (team,))
     return cur.fetchall()
 
@@ -148,40 +148,64 @@ def get_player_id(name, team):
     # 3. Ask for user help
     return ask_user_for_player_id(name, team)
 
+def save_game(game):
+    cur.execute("""INSERT INTO public.game (local_team_id, visiting_team_id, 
+        local_points, visiting_points, game_type_id, jornada, date, neutral_court)
+        VALUES (%(team_local)s, %(team_visiting)s, %(res_local)s, %(res_visitng)s, %(type)s, 
+        %(jornada)s, %(date)s, %(neutral)s) RETURNING id;""", game)
+    print('-------------ID:', cur.fetchone()[0])
+    return cur.fetchone()[0]
+
 with open('stat_1.html') as fp:
     first_team = True
+    game = {}
+    game['team_local'] = undefined_team_id
+    game['team_visiting'] = undefined_team_id
+    game['type'] = 3 # Amistoso
+    game['neutral'] = True
     soup = BeautifulSoup(fp, 'html.parser')
+    game_data = soup.find_all('tr', class_='estnegro')[0]
+    game_info = game_data.find_all('td')[0].string
+    game_info = game_info.replace(' ', '').split('|')
+    jornada_idx = game_info[0].find('J')
+    game['jornada'] = game_info[0][jornada_idx+1:]
+    date = datetime.strptime(game_info[1], '%d/%m/%Y')
+    game['date'] = date.isoformat()    
     stats_table = soup.find_all('table', class_='estadisticasnew')
     stats_table = real_stats_table(stats_table)
     rows = stats_table.find_all('tr')
     for row in rows:
+        if not row.find('td', class_='estverdel'):
+            continue
+        # New team stat
+        new_team = row.find('td', class_='estverdel').string
+        idx = new_team.rfind(' ')
+        team = new_team[:idx]
+        result = new_team[idx+1:]
+        print('New team:', new_team[:idx], 'Result:', new_team[idx+1:])
+        team_id = check_team(team)
+        # Save team in dictionary
+        if team_id != undefined_team_id:
+            team_id_dict[team] = team_id
+        if first_team:
+            game['team_local'] = team_id
+            game['res_local'] = result
+            first_team = False
+        else:
+            game['team_visiting'] = team_id
+            game['res_visitng'] = result
+    print(game)
+    # game_id = save_game(game)
+    game_id = 1
+    for row in rows:
         if row.find('td', class_='estverdel'):
-            # New team stat
-            new_team = row.find('td', class_='estverdel').string
-            idx = new_team.rfind(' ')
-            team = new_team[:idx]
-            result = new_team[idx+1:]
-            print('New team:', new_team[:idx], 'Result:', new_team[idx+1:])
-            team_id = check_team(team)
-            # Save team in dictionary
-            if team_id != undefined_team_id:
-                team_id_dict[team] = team_id
-        elif not row.find('td', class_='estverde'):
-            columns = row.find_all('td')
-            if len(columns) > 20 and columns[1].find('a'):
-                if columns[2].string != u'\xa0':
-                    # Player played
-                    player = {}
-                    player_name = columns[1].find('a').string
-                    player_id = get_player_id(player_name, team_id)
-                    if player_id == -1:
-                        continue
-                    else:
-                        print(player_id, player_name)
-                        print(team, team_id)
-                else:
-                    print('0 minuts')
-                try:
-                    print(int(columns[3].string))
-                except ValueError:
-                    print('Didn\'t play')
+            continue
+        columns = row.find_all('td')
+        if len(columns) > 20 and columns[1].find('a'):
+            if columns[2].string != u'\xa0':
+                # Player played
+                player = {}
+                player_name = columns[1].find('a').string
+                player_id = get_player_id(player_name, team_id)
+                if player_id == -1:
+                    continue
