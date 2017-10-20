@@ -1,0 +1,22 @@
+version: '3.3'
+volumes:
+  vol-dist-data: {}
+networks:
+  net-proxy:
+    driver: overlay
+services:
+  vue-app:
+    image: jest10820/vue-frontend 
+    volumes:
+      - vol-dist-data:/home/node/app
+    environment:
+      - NODE_ENV=production
+        #command: ["npm", "run", "build"]
+    ports:
+      - "8888:3003"
+  nginx:
+    image: jest10820/nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - vol-dist-data:/app
