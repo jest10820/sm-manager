@@ -11,9 +11,6 @@ services:
       - vol-dist-data:/home/node/app
     environment:
       - NODE_ENV=production
-        #command: ["npm", "run", "build"]
-    ports:
-      - "8888:3003"
   nginx:
     image: jest10820/nginx
     ports:
