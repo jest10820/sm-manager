@@ -1,3 +1,4 @@
+import os
 from bs4 import BeautifulSoup
 import psycopg2
 from datetime import datetime
@@ -10,6 +11,9 @@ except:
 cur = conn.cursor()
 team_id_dict = {}
 player_id_dict = {}
+stats_col_dict = {'name': 1, 'time': 2, 't2': 4, 't3': 6, 't1': 8,
+    'reb': 11, 'ass': 12, 'br': 13, 'bp': 14, 'tf': 16, 'tc': 17, 'ff': 19, 'fc': 20}
+
 
 def get_undefined_team_id():
     cur.execute("""SELECT id FROM public.team WHERE name='Undefined team';""")
@@ -149,63 +153,117 @@ def get_player_id(name, team):
     return ask_user_for_player_id(name, team)
 
 def save_game(game):
+    print('Saving game:')
+    print(game)
     cur.execute("""INSERT INTO public.game (local_team_id, visiting_team_id, 
         local_points, visiting_points, game_type_id, jornada, date, neutral_court)
         VALUES (%(team_local)s, %(team_visiting)s, %(res_local)s, %(res_visitng)s, %(type)s, 
         %(jornada)s, %(date)s, %(neutral)s) RETURNING id;""", game)
-    print('-------------ID:', cur.fetchone()[0])
+    conn.commit()
     return cur.fetchone()[0]
 
-with open('stat_1.html') as fp:
-    first_team = True
-    game = {}
-    game['team_local'] = undefined_team_id
-    game['team_visiting'] = undefined_team_id
-    game['type'] = 3 # Amistoso
-    game['neutral'] = True
-    soup = BeautifulSoup(fp, 'html.parser')
-    game_data = soup.find_all('tr', class_='estnegro')[0]
-    game_info = game_data.find_all('td')[0].string
-    game_info = game_info.replace(' ', '').split('|')
-    jornada_idx = game_info[0].find('J')
-    game['jornada'] = game_info[0][jornada_idx+1:]
-    date = datetime.strptime(game_info[1], '%d/%m/%Y')
-    game['date'] = date.isoformat()    
-    stats_table = soup.find_all('table', class_='estadisticasnew')
-    stats_table = real_stats_table(stats_table)
-    rows = stats_table.find_all('tr')
-    for row in rows:
-        if not row.find('td', class_='estverdel'):
-            continue
-        # New team stat
-        new_team = row.find('td', class_='estverdel').string
-        idx = new_team.rfind(' ')
-        team = new_team[:idx]
-        result = new_team[idx+1:]
-        print('New team:', new_team[:idx], 'Result:', new_team[idx+1:])
-        team_id = check_team(team)
-        # Save team in dictionary
-        if team_id != undefined_team_id:
-            team_id_dict[team] = team_id
-        if first_team:
-            game['team_local'] = team_id
-            game['res_local'] = result
-            first_team = False
-        else:
-            game['team_visiting'] = team_id
-            game['res_visitng'] = result
-    print(game)
-    # game_id = save_game(game)
-    game_id = 1
-    for row in rows:
-        if row.find('td', class_='estverdel'):
-            continue
-        columns = row.find_all('td')
-        if len(columns) > 20 and columns[1].find('a'):
-            if columns[2].string != u'\xa0':
-                # Player played
-                player = {}
-                player_name = columns[1].find('a').string
-                player_id = get_player_id(player_name, team_id)
-                if player_id == -1:
-                    continue
+def get_shots(shots):
+    idx = shots.find('/')
+    return int(shots[:idx]), int(shots[idx+1:])
+
+def get_rebounds(rebs):
+    idx = rebs.find('+')
+    return int(rebs[:idx]), int(rebs[idx+1:])
+
+def save_stat(stats):
+    cur.execute("""INSERT INTO public.stats (game_id, player_id, total_time, t2a, 
+    t2i, t3a, t3i, t1a, t1i, rd, ro, ass, br, bp, tf, tc, ff, fc)
+	VALUES (%(game)s, %(id)s, %(time)s, %(t2a)s, %(t2i)s, %(t3a)s, 
+    %(t3i)s, %(t1a)s, %(t1i)s, %(rd)s, %(ro)s, %(ass)s, %(br)s, %(bp)s, %(tf)s, %(tc)s, %(ff)s, %(fc)s) RETURNING id;""", stats)
+    conn.commit()
+    return cur.fetchone()[0]
+
+directory = os.fsencode('stats')
+
+for file in os.listdir(directory):
+    with open('stats/' + os.fsdecode(file)) as fp:
+        first_team = True
+        game = {}
+        game['team_local'] = undefined_team_id
+        game['team_visiting'] = undefined_team_id
+        game['type'] = 3 # Amistoso
+        game['neutral'] = True
+        soup = BeautifulSoup(fp, 'html.parser')
+        game_data = soup.find_all('tr', class_='estnegro')[0]
+        game_info = game_data.find_all('td')[0].string
+        game_info = game_info.replace(' ', '').split('|')
+        jornada_idx = game_info[0].find('J')
+        game['jornada'] = game_info[0][jornada_idx+1:]
+        date = datetime.strptime(game_info[1], '%d/%m/%Y')
+        game['date'] = date.isoformat()    
+        stats_table = soup.find_all('table', class_='estadisticasnew')
+        stats_table = real_stats_table(stats_table)
+        rows = stats_table.find_all('tr')
+        for row in rows:
+            if not row.find('td', class_='estverdel'):
+                continue
+            # New team stat
+            new_team = row.find('td', class_='estverdel').string
+            idx = new_team.rfind(' ')
+            team = new_team[:idx]
+            result = new_team[idx+1:]
+            print('New team:', new_team[:idx], 'Result:', new_team[idx+1:])
+            team_id = check_team(team)
+            # Save team in dictionary
+            if team_id != undefined_team_id:
+                team_id_dict[team] = team_id
+            if first_team:
+                game['team_local'] = team_id
+                game['res_local'] = result
+                first_team = False
+            else:
+                game['team_visiting'] = team_id
+                game['res_visitng'] = result
+        game_id = save_game(game)
+        first_team = True
+        team_id = game['team_local']
+        for row in rows:
+            if row.find('td', class_='estverdel'):
+                if first_team:
+                    first_team = False
+                else:
+                    team_id = game['team_visiting']
+                continue
+            if team_id == undefined_team_id or team_id == 2 or team_id == 10:
+                continue
+            columns = row.find_all('td')
+            if len(columns) > 20 and columns[1].find('a'):
+                if columns[2].string != u'\xa0':
+                    # Player played
+                    player = {}
+                    player['game'] = game_id
+                    player_name = columns[stats_col_dict['name']].find('a').string
+                    player_id = get_player_id(player_name, team_id)
+                    player_id_dict[player_name] = player_id
+                    if player_id == -1:
+                        continue
+                    player['id'] = player_id
+                    # Get stats of the player
+                    time_played = columns[stats_col_dict['time']].string
+                    time_idx = time_played.find(':')
+                    player['time'] = int(time_played)*60 if time_idx == -1 else (int(time_played[:time_idx])*60 + int(time_played[time_idx + 1:]))
+                    shot2 = get_shots(columns[stats_col_dict['t2']].string)
+                    shot3 = get_shots(columns[stats_col_dict['t3']].string)
+                    shot1 = get_shots(columns[stats_col_dict['t1']].string)
+                    player['t2a'] = shot2[0]
+                    player['t2i'] = shot2[1]
+                    player['t3a'] = shot3[0]
+                    player['t3i'] = shot3[1]
+                    player['t1a'] = shot1[0]
+                    player['t1i'] = shot1[1]
+                    reb = get_rebounds(columns[stats_col_dict['reb']].string)
+                    player['rd'] = reb[0]
+                    player['ro'] = reb[1]
+                    player['ass'] = columns[stats_col_dict['ass']].string
+                    player['br'] = columns[stats_col_dict['br']].string
+                    player['bp'] = columns[stats_col_dict['bp']].string
+                    player['tf'] = columns[stats_col_dict['tf']].string
+                    player['tc'] = columns[stats_col_dict['tc']].string
+                    player['ff'] = columns[stats_col_dict['ff']].string
+                    player['fc'] = columns[stats_col_dict['fc']].string
+                    save_stat(player)
