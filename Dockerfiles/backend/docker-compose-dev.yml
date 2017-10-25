@@ -1,0 +1,13 @@
+version: '3.3'
+
+volumes:
+  be-node_modules: {} 
+
+services:
+  sm-backend:
+    image: jest10820/sm-backend-dev
+    ports:
+      - "8888:8080"
+    volumes:
+      - ./app:/home/node/app
+      - be-node_modules:/home/node/app/node_modules

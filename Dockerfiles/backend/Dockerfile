@@ -1,0 +1,8 @@
+FROM node:6.11.4
+ENV APP_DIR /home/node/app
+RUN npm install -g nodemon \
+    && mkdir -p $APP_DIR
+WORKDIR $APP_DIR
+COPY app/package.json .
+RUN npm install
+CMD ["nodemon", "-L", "index.js"]
