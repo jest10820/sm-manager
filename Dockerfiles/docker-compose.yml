@@ -1,16 +1,38 @@
-version: '2'
+version: '3.3'
+
+volumes:
+  sm-be-node_modules: {}
+
+networks:
+  net-db:
+    driver: overlay
+  net-backtier:
+    driver: overlay
+
 services:
   postgresql:
     image: jest10820/sm-pgsql 
-    container_name: sm-pgsql
     volumes:
       - /home/docker/sm/pgdata:/var/lib/postgresql/data
+    networks:
+      - net-db
   pgadmin:
     image: jest10820/sm-pgadmin
-    container_name: sm-pgadmin
     ports:
       - "5050:5050"
-    depends_on:
-      - postgresql
     volumes:
       - /home/docker/sm/pgadmin:/var/lib/pgadmin4
+    networks:
+      - net-db
+  sm-backend:
+    image: jest10820/sm-backend-dev
+    ports:
+      - "9888:8080"
+    volumes:
+      - type: bind
+        source: ./backend/app
+        target: /home/node/app
+      - sm-be-node_modules:/home/node/app/node_modules
+    networks:
+      - net-db
+      - net-backtier
